@@ -16,39 +16,41 @@ $title = "";
 $paginated = false;
 $errorMsg = null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['use_proc'])) {
-    $column = $_POST['column'] ?? '';
-    $value = $_POST['value'] ?? '';
+try {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['use_proc'])) {
+        $column = $_POST['column'] ?? '';
+        $value = $_POST['value'] ?? '';
 
-    $sql = "{CALL sp_SafeSelectFromTable(?, ?, ?)}";
-    $params = array($tableName, $column, $value);
-
-    $dataStmt = sqlsrv_query($conn, $sql, $params);
-
-    if ($dataStmt) {
+        $stmt = $conn->prepare("EXEC sp_SafeSelectFromTable :tableName, :column, :value");
+        $stmt->bindParam(':tableName', $tableName);
+        $stmt->bindParam(':column', $column);
+        $stmt->bindParam(':value', $value);
+        $stmt->execute();
+        $dataStmt = $stmt;
         $title = "Search Results in [$tableName] where [$column] = '$value'";
     } else {
-        $errorMsg = "⚠️ Query failed: " . print_r(sqlsrv_errors(), true);
+        $dataSql = "SELECT * FROM [$tableName] ORDER BY 1 OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY";
+        $stmt = $conn->prepare($dataSql);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->bindValue(':limit', $rowsPerPage, PDO::PARAM_INT);
+        $stmt->execute();
+        $dataStmt = $stmt;
+        $title = "Viewing Table: $tableName (Page $currentPage)";
+        $paginated = true;
     }
-}
 
-else {
-    $dataSql = "SELECT * FROM [$tableName] ORDER BY 1 OFFSET $offset ROWS FETCH NEXT $rowsPerPage ROWS ONLY";
-    $title = "Viewing Table: $tableName (Page $currentPage)";
-    $paginated = true;
-    $dataStmt = sqlsrv_query($conn, $dataSql);
-}
+    $totalRows = 0;
+    $totalPages = 1;
 
-$totalRows = 0;
-$totalPages = 1;
-
-if ($paginated) {
-    $countQuery = "SELECT COUNT(*) AS total FROM [$tableName]";
-    $countStmt = sqlsrv_query($conn, $countQuery);
-    if ($countStmt && $row = sqlsrv_fetch_array($countStmt, SQLSRV_FETCH_ASSOC)) {
-        $totalRows = $row['total'];
+    if ($paginated) {
+        $countStmt = $conn->prepare("SELECT COUNT(*) AS total FROM [$tableName]");
+        $countStmt->execute();
+        $totalRows = $countStmt->fetchColumn();
         $totalPages = ceil($totalRows / $rowsPerPage);
     }
+
+} catch (PDOException $e) {
+    $errorMsg = "⚠️ Query failed: " . $e->getMessage();
 }
 
 function formatCell($value) {
@@ -81,15 +83,16 @@ function formatCell($value) {
             <thead>
                 <tr>
                     <?php
-                    $columns = sqlsrv_field_metadata($dataStmt);
-                    foreach ($columns as $col) {
-                        echo "<th>" . htmlspecialchars($col['Name']) . "</th>";
+                    $columnCount = $dataStmt->columnCount();
+                    for ($i = 0; $i < $columnCount; $i++) {
+                        $meta = $dataStmt->getColumnMeta($i);
+                        echo "<th>" . htmlspecialchars($meta['name']) . "</th>";
                     }
                     ?>
                 </tr>
             </thead>
             <tbody>
-                <?php while ($row = sqlsrv_fetch_array($dataStmt, SQLSRV_FETCH_ASSOC)): ?>
+                <?php while ($row = $dataStmt->fetch(PDO::FETCH_ASSOC)): ?>
                     <tr>
                         <?php foreach ($row as $cell): ?>
                             <td><?= formatCell($cell) ?></td>
@@ -110,7 +113,7 @@ function formatCell($value) {
             </div>
         <?php endif; ?>
     <?php else: ?>
-        <p style="color: red;">⚠️ Query failed: <?= print_r(sqlsrv_errors(), true) ?></p>
+        <p style="color: red;">⚠️ No data to display.</p>
     <?php endif; ?>
 
     <hr style="margin: 40px 0;">
@@ -120,9 +123,15 @@ function formatCell($value) {
         <label for="column">Search by Column:</label>
         <select name="column" required>
             <?php
-            $colResult = sqlsrv_query($conn, "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ?", array($tableName));
-            while ($col = sqlsrv_fetch_array($colResult, SQLSRV_FETCH_ASSOC)) {
-                echo '<option value="' . htmlspecialchars($col['COLUMN_NAME']) . '">' . htmlspecialchars($col['COLUMN_NAME']) . '</option>';
+            try {
+                $colStmt = $conn->prepare("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = :tbl");
+                $colStmt->bindParam(':tbl', $tableName);
+                $colStmt->execute();
+                while ($col = $colStmt->fetch(PDO::FETCH_ASSOC)) {
+                    echo '<option value="' . htmlspecialchars($col['COLUMN_NAME']) . '">' . htmlspecialchars($col['COLUMN_NAME']) . '</option>';
+                }
+            } catch (PDOException $e) {
+                echo '<option disabled>Error loading columns</option>';
             }
             ?>
         </select><br><br>
@@ -141,8 +150,9 @@ function formatCell($value) {
 
 </body>
 </html>
-
 <?php
-if ($dataStmt) sqlsrv_free_stmt($dataStmt);
-sqlsrv_close($conn);
+if (isset($dataStmt)) {
+    $dataStmt = null;
+}
+$conn = null;
 ?>

@@ -1,18 +1,16 @@
 <?php
-include 'connect.php';
+include 'connect.php'; 
 
 $sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
-$stmt = sqlsrv_query($conn, $sql);
 
-$tables = [];
-if ($stmt) {
-    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-        $tables[] = $row['TABLE_NAME'];
-    }
-    sqlsrv_free_stmt($stmt);
+try {
+    $stmt = $conn->query($sql);
+    $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+} catch (PDOException $e) {
+    die("Query failed: " . $e->getMessage());
 }
-sqlsrv_close($conn);
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

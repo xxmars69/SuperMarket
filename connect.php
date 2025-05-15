@@ -1,10 +1,13 @@
 <?php
-$serverName = "(localdb)\\Local"; 
-$connectionOptions = array("Database" => "SuperMarket");
+$serverName = "(localdb)\\Local";
+$database = "SuperMarket";
 
-$conn = sqlsrv_connect($serverName, $connectionOptions);
+try {
+    $conn = new PDO("sqlsrv:Server=$serverName;Database=$database");
 
-if (!$conn) {
-    die(print_r(sqlsrv_errors(), true));
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+} catch (PDOException $e) {
+    die("Connection failed: " . $e->getMessage());
 }
 ?>
