@@ -1,10 +1,6 @@
 <?php
-$serverName = "CSIAOMIPC\\SQLEXPRESS"; 
-
-$connectionOptions = array(
-    "Database" => "SuperMarket",       
-    "CharacterSet" => "UTF-8"
-);
+$serverName = "(localdb)\\Local"; 
+$connectionOptions = array("Database" => "SuperMarket");
 
 $conn = sqlsrv_connect($serverName, $connectionOptions);
 

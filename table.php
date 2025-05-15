@@ -6,35 +6,39 @@ $currentPage = isset($_GET['page']) ? max((int)$_GET['page'], 1) : 1;
 $rowsPerPage = 5;
 $offset = ($currentPage - 1) * $rowsPerPage;
 
-$customQuery = $_POST['sql_query'] ?? null;
-
 if (!$tableName) {
     die("No table selected.");
 }
 
+$dataStmt = null;
 $dataSql = "";
 $title = "";
 $paginated = false;
+$errorMsg = null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $customQuery) {
-    if (
-        stripos(trim($customQuery), 'SELECT') === 0 ||
-        stripos(trim($customQuery), 'EXEC') === 0
-    ) {
-        $dataSql = $customQuery;
-        $title = "Custom Query Result";
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['use_proc'])) {
+    $column = $_POST['column'] ?? '';
+    $value = $_POST['value'] ?? '';
+
+    $sql = "{CALL sp_SafeSelectFromTable(?, ?, ?)}";
+    $params = array($tableName, $column, $value);
+
+    $dataStmt = sqlsrv_query($conn, $sql, $params);
+
+    if ($dataStmt) {
+        $title = "Search Results in [$tableName] where [$column] = '$value'";
     } else {
-        $errorMsg = "⚠️ Only SELECT and EXEC queries are allowed.";
+        $errorMsg = "⚠️ Query failed: " . print_r(sqlsrv_errors(), true);
     }
-} else {
+}
+
+else {
     $dataSql = "SELECT * FROM [$tableName] ORDER BY 1 OFFSET $offset ROWS FETCH NEXT $rowsPerPage ROWS ONLY";
     $title = "Viewing Table: $tableName (Page $currentPage)";
     $paginated = true;
+    $dataStmt = sqlsrv_query($conn, $dataSql);
 }
 
-$dataStmt = $dataSql ? sqlsrv_query($conn, $dataSql) : null;
-
-// Count total rows for pagination
 $totalRows = 0;
 $totalPages = 1;
 
@@ -70,7 +74,7 @@ function formatCell($value) {
 </header>
 
 <div class="container">
-    <?php if (isset($errorMsg)): ?>
+    <?php if ($errorMsg): ?>
         <p style="color: red; font-weight: bold;"><?= $errorMsg ?></p>
     <?php elseif ($dataStmt): ?>
         <table>
@@ -85,15 +89,13 @@ function formatCell($value) {
                 </tr>
             </thead>
             <tbody>
-                <?php
-                while ($row = sqlsrv_fetch_array($dataStmt, SQLSRV_FETCH_ASSOC)) {
-                    echo "<tr>";
-                    foreach ($row as $cell) {
-                        echo "<td>" . formatCell($cell) . "</td>";
-                    }
-                    echo "</tr>";
-                }
-                ?>
+                <?php while ($row = sqlsrv_fetch_array($dataStmt, SQLSRV_FETCH_ASSOC)): ?>
+                    <tr>
+                        <?php foreach ($row as $cell): ?>
+                            <td><?= formatCell($cell) ?></td>
+                        <?php endforeach; ?>
+                    </tr>
+                <?php endwhile; ?>
             </tbody>
         </table>
 
@@ -113,11 +115,24 @@ function formatCell($value) {
 
     <hr style="margin: 40px 0;">
 
-    <h2>Run a Custom SQL Query</h2>
+    <h2>Custom Select Query</h2>
     <form method="post">
+        <label for="column">Search by Column:</label>
+        <select name="column" required>
+            <?php
+            $colResult = sqlsrv_query($conn, "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ?", array($tableName));
+            while ($col = sqlsrv_fetch_array($colResult, SQLSRV_FETCH_ASSOC)) {
+                echo '<option value="' . htmlspecialchars($col['COLUMN_NAME']) . '">' . htmlspecialchars($col['COLUMN_NAME']) . '</option>';
+            }
+            ?>
+        </select><br><br>
+
+        <label for="value">Value:</label>
+        <input type="text" name="value" required><br><br>
+
+        <input type="hidden" name="use_proc" value="1">
         <input type="hidden" name="name" value="<?= htmlspecialchars($tableName) ?>">
-        <textarea name="sql_query" rows="5" placeholder="SELECT * FROM [<?= htmlspecialchars($tableName) ?>]"><?= htmlspecialchars($customQuery ?? '') ?></textarea><br><br>
-        <button type="submit">Execute Query</button>
+        <button type="submit">🔍 Search</button>
     </form>
 
     <br>

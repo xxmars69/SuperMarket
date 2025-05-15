@@ -15,7 +15,6 @@
     </div>
 </header>
 
-<!-- Sidebar -->
 <div id="sidebar" class="sidebar">
     <h3>📂 Menu</h3>
     <ul>
