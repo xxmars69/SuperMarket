@@ -1,8 +1,8 @@
 <?php
 include 'connect.php';
 
-$tableName = $_GET['name'] ?? null;
-$currentPage = isset($_GET['page']) ? max((int)$_GET['page'], 1) : 1;
+$tableName = $_POST['name'] ?? $_GET['name'] ?? null;
+$currentPage = isset($_POST['page']) ? max((int)$_POST['page'], 1) : 1;
 $rowsPerPage = 5;
 $offset = ($currentPage - 1) * $rowsPerPage;
 
@@ -17,7 +17,7 @@ $paginated = false;
 $errorMsg = null;
 
 try {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['use_proc'])) {
+    if (isset($_POST['use_proc'])) {
         $column = $_POST['column'] ?? '';
         $value = $_POST['value'] ?? '';
 
@@ -35,7 +35,7 @@ try {
         $stmt->bindValue(':limit', $rowsPerPage, PDO::PARAM_INT);
         $stmt->execute();
         $dataStmt = $stmt;
-        $title = "Viewing Table: $tableName (Page $currentPage)";
+        $title = "Viewing Table: $tableName";
         $paginated = true;
     }
 
@@ -68,6 +68,7 @@ function formatCell($value) {
     <meta charset="UTF-8">
     <title><?= htmlspecialchars($title) ?></title>
     <link rel="stylesheet" href="style/table.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
 
@@ -105,10 +106,18 @@ function formatCell($value) {
         <?php if ($paginated && $totalPages > 1): ?>
             <div class="pagination">
                 <?php if ($currentPage > 1): ?>
-                    <a class="page-btn" href="?name=<?= urlencode($tableName) ?>&page=<?= $currentPage - 1 ?>">← Previous</a>
+                    <form method="post" style="display:inline;">
+                        <input type="hidden" name="name" value="<?= htmlspecialchars($tableName) ?>">
+                        <input type="hidden" name="page" value="<?= $currentPage - 1 ?>">
+                        <button class="page-btn">← Previous</button>
+                    </form>
                 <?php endif; ?>
                 <?php if ($currentPage < $totalPages): ?>
-                    <a class="page-btn" href="?name=<?= urlencode($tableName) ?>&page=<?= $currentPage + 1 ?>">Next →</a>
+                    <form method="post" style="display:inline;">
+                        <input type="hidden" name="name" value="<?= htmlspecialchars($tableName) ?>">
+                        <input type="hidden" name="page" value="<?= $currentPage + 1 ?>">
+                        <button class="page-btn">Next →</button>
+                    </form>
                 <?php endif; ?>
             </div>
         <?php endif; ?>

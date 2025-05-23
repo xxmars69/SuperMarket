@@ -1,23 +1,11 @@
-<?php
-include 'connect.php'; 
-
-$sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
-
-try {
-    $stmt = $conn->query($sql);
-    $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
-} catch (PDOException $e) {
-    die("Query failed: " . $e->getMessage());
-}
-?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>SuperMarket Dashboard</title>
     <link rel="stylesheet" href="style/style.css">
-    <script src="script/script.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="script/script.js" defer></script>
 </head>
 <body>
 
@@ -25,15 +13,15 @@ try {
     <div class="header-content">
         <button class="menu-btn" onclick="toggleSidebar()">☰</button>
         <h1>SuperMarket DBMS Dashboard</h1>
+        <img class="img" src="images/logo.png" alt="Nokia Logo">
     </div>
 </header>
-
 
 
 <div id="sidebar" class="sidebar">
     <h3>📂 Menu</h3>
     <ul>
-        <li><a href="dashboard.php">Dashboard</a></li>
+        <li><a href="#">Dashboard</a></li>
         <li><a href="#">Members</a></li>
         <li><a href="architecture.php">Architecture</a></li>
         <li><a href="gantt.php">GANTT</a></li>
@@ -43,19 +31,22 @@ try {
 
 <div class="container">
     <h2>Select a Table</h2>
-    <form action="table.php" method="GET">
+    <form action="table.php" method="POST">
         <div class="dropdown-wrapper">
-            <select name="name" required>
-                <option value="" disabled selected>Choose a table...</option>
-                <?php foreach ($tables as $table): ?>
-                    <option value="<?= htmlspecialchars($table) ?>"><?= htmlspecialchars($table) ?></option>
-                <?php endforeach; ?>
+            <select name="name" id="table-dropdown" required>
+                <option value="" disabled selected>Loading tables...</option>
             </select>
             <button type="submit">View Table</button>
         </div>
     </form>
-</div>
 
+    <div id="table-container">
+        <table>
+            <thead id="table-headers"></thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
+</div>
 
 </body>
 </html>
