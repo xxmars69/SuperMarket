@@ -48,5 +48,81 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+let cpuChart, dbChart, memoryChart;
+
+function createCharts(cpu, db, mem) {
+    const options = {
+        type: 'doughnut',
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    };
+
+    cpuChart = new Chart(document.getElementById('cpuChart'), {
+        ...options,
+        data: {
+            labels: ['Used', 'Free'],
+            datasets: [{
+                data: [cpu, 100 - cpu],
+                backgroundColor: ['#ff6384', '#dddddd']
+            }]
+        }
+    });
+
+    dbChart = new Chart(document.getElementById('dbChart'), {
+        ...options,
+        data: {
+            labels: ['Active', 'Idle'],
+            datasets: [{
+                data: [db, 100 - db],
+                backgroundColor: ['#36a2eb', '#dddddd']
+            }]
+        }
+    });
+
+    memoryChart = new Chart(document.getElementById('memoryChart'), {
+        ...options,
+        data: {
+            labels: ['Used', 'Free'],
+            datasets: [{
+                data: [mem, 100 - mem],
+                backgroundColor: ['#ffcd56', '#dddddd']
+            }]
+        }
+    });
+}
+
+
+
+function updateCharts(cpu, db, mem) {
+    cpuChart.data.datasets[0].data = [cpu, 100 - cpu];
+    dbChart.data.datasets[0].data = [db, 100 - db];
+    memoryChart.data.datasets[0].data = [mem, 100 - mem];
+
+    cpuChart.update();
+    dbChart.update();
+    memoryChart.update();
+}
+
+function fetchMetrics() {
+    $.getJSON('dashboard.php?metrics=1', function (data) {
+        if (!cpuChart) {
+            createCharts(data.cpu, data.db, data.memory);
+        } else {
+            updateCharts(data.cpu, data.db, data.memory);
+        }
+    });
+}
+
+
+document.addEventListener("DOMContentLoaded", function () {
+    fetchMetrics();
+    setInterval(fetchMetrics, 5000);
+});
+
+
   
     

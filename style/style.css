@@ -154,3 +154,22 @@ button:hover {
     height: 80px;
     margin-left: auto;
 }
+
+
+.kpi-section {
+    margin-top: 40px;
+    text-align: center;
+}
+
+.kpi-charts {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    flex-wrap: wrap;
+    margin-bottom: 40px;
+}
+
+.chart-container {
+    width: 200px;
+    height: 200px;
+}
